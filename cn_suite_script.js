@@ -2,11 +2,32 @@
 // author: NeuraXmy 8823
 const scriptName = "upload.js";
 const version = "0.4.2";
-// 新增：详细日志辅助
 const START_TIME = Date.now();
 function safeJson(obj) { try { return JSON.stringify(obj); } catch { return String(obj); } }
 function log(label, value) { try { console.log(`[${scriptName}] ${label}: ${typeof value === 'object' ? safeJson(value) : value}`); } catch (e) {} }
 function logMsg(msg) { try { console.log(`[${scriptName}] ${msg}`); } catch (e) {} }
+
+function getJWT() {
+    try {
+        if (typeof $script !== 'undefined' && $script.scriptPath) {
+            log('scriptPath', $script.scriptPath);
+            const m = $script.scriptPath.match(/[?&]jwt=([^&]+)/);
+            if (m) {
+                const raw = m[1];
+                const decoded = decodeURIComponent(raw);
+                log('JWT匹配', `raw_len=${raw.length}, decode_len=${decoded.length}`);
+                return decoded;
+            } else {
+                logMsg('未在 scriptPath 中找到 jwt 参数');
+            }
+        } else {
+            logMsg('环境无 $script.scriptPath 或未定义');
+        }
+    } catch (e) {
+        console.log(`[${scriptName}] getJWT 异常: ${e}`);
+    }
+    return '';
+}
 
 const B64_INV = (function () {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -81,7 +102,6 @@ function parseJWTHeaderManual(token) {
         return JSON.parse(s);
     } catch { return {}; }
 }
-
 
 /* main */
 console.log(`[${scriptName} v${version}] 开始上传`);
