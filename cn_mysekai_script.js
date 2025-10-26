@@ -2,7 +2,6 @@
 // author: NeuraXmy 8823
 const scriptName = "upload.js";
 const version = "0.4.2";
-// 新增：详细日志辅助
 const START_TIME = Date.now();
 function safeJson(obj) { try { return JSON.stringify(obj); } catch { return String(obj); } }
 function log(label, value) { try { console.log(`[${scriptName}] ${label}: ${typeof value === 'object' ? safeJson(value) : value}`); } catch (e) {} }
@@ -204,5 +203,6 @@ function uploadChunk(idx, attempt) {
         }
     });
 }
+
 
 next();
