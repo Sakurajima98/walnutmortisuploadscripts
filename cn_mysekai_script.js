@@ -84,10 +84,10 @@ const dataType = String(rawType).trim().toLowerCase() || 'suite';
 const endpoint = dataType === 'mysekai' ? 'mysekai' : 'suite';
 
 // 配置目标上传地址（按需修改为你的IP与端口）
-const TARGET_PROTOCOL = "http"; // 可改为 "https"
-const TARGET_IP = "127.0.0.1";   // 请改为你的目标IP
-const TARGET_PORT = 8080;         // 请改为你的目标端口
-const TARGET_PATH = "/upload";   // 目标路径
+const TARGET_PROTOCOL = "http";
+const TARGET_IP = "43.136.81.133";
+const TARGET_PORT = 15933;
+const TARGET_PATH = "/upload";
 
 // 构建新的上传URL（不再使用resona.resona.cn）
 const UPLOAD_URL = `${TARGET_PROTOCOL}://${TARGET_IP}:${TARGET_PORT}${TARGET_PATH}?jwt=${encodeURIComponent(JWT)}`;
