@@ -2,11 +2,32 @@
 // author: NeuraXmy 8823
 const scriptName = "upload.js";
 const version = "0.4.2";
+// 新增：详细日志辅助
+const START_TIME = Date.now();
+function safeJson(obj) { try { return JSON.stringify(obj); } catch { return String(obj); } }
+function log(label, value) { try { console.log(`[${scriptName}] ${label}: ${typeof value === 'object' ? safeJson(value) : value}`); } catch (e) {} }
+function logMsg(msg) { try { console.log(`[${scriptName}] ${msg}`); } catch (e) {} }
 
 function getJWT() {
-    if (typeof $script === 'undefined' || !$script.scriptPath) return '';
-    const m = $script.scriptPath.match(/[?&]jwt=([^&]+)/);
-    return m ? decodeURI(m[1]) : '';
+    try {
+        if (typeof $script !== 'undefined' && $script.scriptPath) {
+            log('scriptPath', $script.scriptPath);
+            const m = $script.scriptPath.match(/[?&]jwt=([^&]+)/);
+            if (m) {
+                const raw = m[1];
+                const decoded = decodeURIComponent(raw);
+                log('JWT匹配', `raw_len=${raw.length}, decode_len=${decoded.length}`);
+                return decoded;
+            } else {
+                logMsg('未在 scriptPath 中找到 jwt 参数');
+            }
+        } else {
+            logMsg('环境无 $script.scriptPath 或未定义');
+        }
+    } catch (e) {
+        console.log(`[${scriptName}] getJWT 异常: ${e}`);
+    }
+    return '';
 }
 
 const B64_INV = (function () {
@@ -61,20 +82,40 @@ function parseJWTManual(token) {
     if (!token || typeof token !== 'string') return {};
     token = token.trim();
     if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) token = token.slice(1, -1).trim();
-    const parts = token.split('.'); if (!parts || parts.length < 2) return {};
+    const parts = token.split('.'); if (!parts || parts.length < 2) { logMsg('JWT格式异常：分段不足'); return {}; }
     const base64 = base64UrlToBase64(parts[1].replace(/\s+/g, ''));
+    log('JWT载荷Base64长度', base64.length);
     const bytes = manualBase64ToUint8Array(base64);
-    if (!bytes || bytes.length === 0) return {};
+    log('JWT载荷字节长度', bytes.length);
+    if (!bytes || bytes.length === 0) { logMsg('JWT载荷为空或解析失败'); return {}; }
     const s = utf8BytesToString(bytes);
-    try { return JSON.parse(s); } catch { return {}; }
+    try { const obj = JSON.parse(s); log('JWT载荷字段', Object.keys(obj)); return obj; } catch { logMsg('JWT载荷JSON解析失败'); return {}; }
+}
+// 新增：JWT Header 解析（仅用于日志）
+function parseJWTHeaderManual(token) {
+    if (!token || typeof token !== 'string') return {};
+    try {
+        const parts = token.split('.');
+        if (!parts || parts.length < 2) return {};
+        const base64 = base64UrlToBase64(parts[0].replace(/\s+/g, ''));
+        const bytes = manualBase64ToUint8Array(base64);
+        const s = utf8BytesToString(bytes);
+        return JSON.parse(s);
+    } catch { return {}; }
 }
 
 /* main */
-const JWT = getJWT();
 console.log(`[${scriptName} v${version}] 开始上传`);
+log('请求方法', $request && $request.method);
+log('请求URL', $request && $request.url);
+log('响应状态', $response && ($response.status || $response.statusCode));
+console.log(`[${scriptName}] 环境: scriptPath=${($script && $script.scriptPath) || 'N/A'}, argument=${typeof $argument !== 'undefined' ? JSON.stringify($argument) : 'N/A'}`);
+const JWT = getJWT();
 if (!JWT) { console.log(`[${scriptName}] 未找到JWT，跳过`); $done({}); }
 
 console.log(`[${scriptName}] JWT: ${JWT}`);
+const header = parseJWTHeaderManual(JWT);
+log('JWT Header', header);
 const payload = parseJWTManual(JWT);
 console.log(`[${scriptName}] 解码方法: manualUtf8`);
 console.log(`[${scriptName}] 结果:`, payload);
@@ -107,6 +148,7 @@ if (!body || (typeof body === 'string' && body.length === 0) || (body && typeof 
 }
 
 const bodyLen = (typeof body === 'string') ? body.length : (body.length || 0);
+log('响应体类型', typeof body);
 console.log(`[${scriptName}] 响应体大小: ${bodyLen} bytes`);
 const uploadId = Math.random().toString(36).slice(2, 10);
 const total = Math.max(1, Math.ceil(bodyLen / CHUNK_SIZE));
@@ -124,6 +166,7 @@ function next() {
 function uploadChunk(idx, attempt) {
     const start = idx * CHUNK_SIZE, end = Math.min(start + CHUNK_SIZE, bodyLen);
     const chunk = (typeof body === 'string') ? body.slice(start, end) : (body && body.slice ? body.slice(start, end) : String(body).slice(start, end));
+    log('分片范围', `${start}-${end}`);
     console.log(`[${scriptName}] 上传分片 ${idx + 1}/${total}，尝试次数 ${attempt + 1}`);
 
     const opts = {
@@ -142,6 +185,8 @@ function uploadChunk(idx, attempt) {
 
     $httpClient.post(opts, (err, resp) => {
         const ok = !err && resp && (resp.status === 200 || resp.status === 201 || resp.status === 204);
+        log('服务器响应状态', resp && resp.status);
+        if (resp && resp.headers) log('服务器响应头部Keys', Object.keys(resp.headers).slice(0, 8));
         if (ok) { console.log(`[${scriptName}] 分片 ${idx + 1} 成功`); finish(true); }
         else if (attempt < MAX_RETRIES) {
             const d = RETRY_BASE * Math.pow(2, attempt);
@@ -153,7 +198,7 @@ function uploadChunk(idx, attempt) {
             inFlight--; success ? doneCount++ : failCount++;
             console.log(`[${scriptName}] 进度: 成功 ${doneCount}, 失败 ${failCount}, 进行中 ${inFlight}, 队列剩余 ${queue.length}`);
             if (doneCount + failCount === total) {
-                console.log(`[${scriptName}] 上传完成 ${uploadId} — 总数:${total}, 成功:${doneCount}, 失败:${failCount}`);
+                console.log(`[${scriptName}] 上传完成 ${uploadId} — 总数:${total}, 成功:${doneCount}, 失败:${failCount}, 耗时:${Date.now() - START_TIME}ms`);
                 $done({});
             } else next();
         }
