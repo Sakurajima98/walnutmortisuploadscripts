@@ -90,7 +90,7 @@ function parseJWTManual(token) {
     const s = utf8BytesToString(bytes);
     try { const obj = JSON.parse(s); log('JWT载荷字段', Object.keys(obj)); return obj; } catch { logMsg('JWT载荷JSON解析失败'); return {}; }
 }
-// 新增：JWT Header 解析（仅用于日志）
+
 function parseJWTHeaderManual(token) {
     if (!token || typeof token !== 'string') return {};
     try {
@@ -123,13 +123,11 @@ const rawType = (payload && (payload.data_type || payload.dataType)) || '';
 const dataType = String(rawType).trim().toLowerCase() || 'suite';
 const endpoint = dataType === 'mysekai' ? 'mysekai' : 'suite';
 
-// 配置目标上传地址（按需修改为你的IP与端口）
 const TARGET_PROTOCOL = "http";
 const TARGET_IP = "43.136.81.133";
 const TARGET_PORT = 15933;
 const TARGET_PATH = "/upload";
 
-// 构建新的上传URL（不再使用resona.resona.cn）
 const UPLOAD_URL = `${TARGET_PROTOCOL}://${TARGET_IP}:${TARGET_PORT}${TARGET_PATH}?jwt=${encodeURIComponent(JWT)}`;
 
 console.log(`[${scriptName}] upload url: ${UPLOAD_URL}`);
@@ -205,3 +203,4 @@ function uploadChunk(idx, attempt) {
 }
 
 next();
+
