@@ -122,7 +122,7 @@ const rawType = (payload && (payload.data_type || payload.dataType)) || '';
 const dataType = String(rawType).trim().toLowerCase() || 'suite';
 const endpoint = dataType === 'mysekai' ? 'mysekai' : 'suite';
 const TARGET_PROTOCOL = "http";
-const TARGET_IP = "43.136.81.133";
+const TARGET_IP = "43.153.152.35";
 const TARGET_PORT = 15933;
 const TARGET_PATH = "/upload";
 const UPLOAD_URL = `${TARGET_PROTOCOL}://${TARGET_IP}:${TARGET_PORT}${TARGET_PATH}?jwt=${encodeURIComponent(JWT)}`;
